@@ -1,4 +1,7 @@
 #include "RingBuffer.h"
+#include <sys/time.h>
+#include <stdio.h>
+#include <string.h>
 
 #define RINGBUF_SIZE 2*1024*1024
 #define RINGBUF_DEBUG(fmt,x...) printf("[%s][%d][DEBUG]"#fmt,__FUNCTION__,__LINE__,##x)
@@ -69,7 +72,7 @@ size_t RingBuffer::readBuffer(char *outBuf,int len)
 		tvn.tv_sec = tv.tv_sec + 2;
 		tvn.tv_nsec = (tv.tv_usec)*1000;
 		
-		pthread_cond_timewait(&m_iCondRead,&m_iMutxRead,&tvn);
+		pthread_cond_timedwait(&m_iCondRead,&m_iMutxRead,&tvn);
 		if(m_bBreakIO)
 		{
 			RINGBUF_DEBUG("IO Broken\n");
@@ -158,7 +161,7 @@ size_t RingBuffer::writeBuffer(char *inBuf,int len)
 		tvn.tv_sec = tv.tv_sec + 2;
 		tvn.tv_nsec = (tv.tv_usec)*1000;
 			
-		pthread_cond_timewait(&m_iCondWrite,&m_iMutxWrite,&tvn);
+		pthread_cond_timedwait(&m_iCondWrite,&m_iMutxWrite,&tvn);
 		//pthread_cond_wait(&m_iCondWrite,&m_iMutxWrite);
 		if(m_bBreakIO)
 		{
@@ -176,10 +179,10 @@ size_t RingBuffer::writeBuffer(char *inBuf,int len)
 	{
 		memcpy(m_pWritePtr,inBuf,writeBufLen);
 
-		pthread_mutex_lock(m_iMutxRead);
+		pthread_mutex_lock(&m_iMutxRead);
 		m_pWritePtr += writeBufLen;
-		pthread_cond_signal(m_iCondRead);
-		pthread_mutex_unlock(m_iMutxRead);
+		pthread_cond_signal(&m_iCondRead);
+		pthread_mutex_unlock(&m_iMutxRead);
 	}else
 	{
 		
@@ -207,5 +210,11 @@ size_t RingBuffer::writeBuffer(char *inBuf,int len)
 		}
 	}
 	return writeBufLen;
+}
+
+size_t RingBuffer::getBufferLeftSize()
+{
+	size_t leftBufLen = (m_pWritePtr >= m_pReadPtr)?(m_iBufferSize - (m_pWritePtr-m_pReadPtr)-1):(m_pReadPtr - m_pWritePtr -1);
+	return leftBufLen;
 }
 

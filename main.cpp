@@ -1,4 +1,10 @@
 #include <pthread.h>
+#include <sys/types.h>
+#include "RingBuffer.h"
+#include <string.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
 
 void * write_entry(void *arg);
 void * read_entry(void *arg);
@@ -8,6 +14,8 @@ typedef struct Contex
 	RingBuffer * m_pRingBuffer;
 }Contex;
 
+bool writeThredExit = false;
+bool readThreadExit = false;
 int main(int argc,char** argv)
 {
 	char c;
@@ -27,19 +35,16 @@ int main(int argc,char** argv)
 	pthread_t writeTid = -1;
 	pthread_t readTid = -1;
 	
-	bool writeThredExit = false;
-	bool readThreadExit = false;
-	
 
-	contex->pRingBuffer = new pRingBuffer();
-	contex->pRingBuffer->initBuffer(32);
+	contex.m_pRingBuffer = new RingBuffer();
+	contex.m_pRingBuffer->initBuffer(32);
 
 	pthread_create(&writeTid,NULL,write_entry,(void*)&contex);
 	pthread_create(&readTid,NULL,read_entry,(void*)&contex);
 	
 	while(c = getchar())
 	{
-		switch()
+		switch(c)
 		{
 		case 'q':
 			isExit = true;
@@ -52,18 +57,29 @@ int main(int argc,char** argv)
 			break;
 	}
 
-	pthread_join();
-	pthread_join();
+	contex.m_pRingBuffer->setBreakIO();
+	writeThredExit = true;
+	readThreadExit = true;
+
+	void * reval = NULL;
+	pthread_join(writeTid,&reval);
+	pthread_join(readTid,&reval);
 	
 	return 0;
 }
 
 void * write_entry(void *arg)
 {
-	RingBuffer * pRingBuf = (RingBuffer *)arg;
-	while(1)
+	Contex * pContex = (Contex *)arg;
+	char buffer[4] = {0};
+	while(!writeThredExit)
 	{
-		
+		size_t leftSize = pContex->m_pRingBuffer->getBufferLeftSize();
+
+		size_t realReadSize = (leftSize < 4)?leftSize:4;
+		read(pContex->m_Fd,buffer,realReadSize);
+
+		pContex->m_pRingBuffer->writeBuffer(buffer, realReadSize);
 	}
 	
 	return 0;
@@ -71,7 +87,18 @@ void * write_entry(void *arg)
 
 void * read_entry(void *arg)
 {
+	Contex * pContex = (Contex *)arg;
+	char buffer[4] = {0};
+	while(!readThreadExit)
+	{
+		memset(buffer,0,4);
+		pContex->m_pRingBuffer->readBuffer(buffer, 4);
+		printf("buffer[%c][%c][%c][%c]\n",buffer[0],buffer[1],
+						buffer[2],
+						buffer[3]);
+	}
 	
+	return 0;
 }
 
 
