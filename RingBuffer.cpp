@@ -4,11 +4,11 @@
 #include <string.h>
 
 #define RINGBUF_SIZE 2*1024*1024
-#define RINGBUF_DEBUG(fmt,x...) printf("[%s][%d][DEBUG]"#fmt,__FUNCTION__,__LINE__,##x)
+#define RINGBUF_DEBUG(fmt,x...) printf("[%s][%d][DEBUG]"fmt,__FUNCTION__,__LINE__,##x)
 
-#define RINGBUF_ERROR(fmt,x...) printf("[%s][%d][ERROR]"#fmt,__FUNCTION__,__LINE__,##x)
+#define RINGBUF_ERROR(fmt,x...) printf("[%s][%d][ERROR]"fmt,__FUNCTION__,__LINE__,##x)
 
-#define RINGBUF_WARMING(fmt,x...) printf("[%s][%d][WARMING]"#fmt,__FUNCTION__,__LINE__,##x)
+#define RINGBUF_WARMING(fmt,x...) printf("[%s][%d][WARMING]"fmt,__FUNCTION__,__LINE__,##x)
 
 #define RINGBUFFER_MIN(a,b)(a>b ? b:a)
 
@@ -54,7 +54,7 @@ void RingBuffer::initBuffer(int buffSize)
 	m_pReadPtr = m_pWritePtr = m_pBuffer;
 }
 
-size_t RingBuffer::readBuffer(char *outBuf,int len)
+int RingBuffer::readBuffer(char *outBuf,int len)
 {
 	if(m_pBuffer == NULL)
 	{
@@ -143,11 +143,12 @@ size_t RingBuffer::readBuffer(char *outBuf,int len)
 	return readLen;
 }
 
-size_t RingBuffer::writeBuffer(char *inBuf,int len)
+int RingBuffer::writeBuffer(char *inBuf,int len)
 {
 	if(m_pBuffer == NULL)
 	{
 		RINGBUF_ERROR("Buffer no init\n");
+		return -1;
 	}
 
 	pthread_mutex_lock(&m_iMutxWrite);
@@ -165,7 +166,8 @@ size_t RingBuffer::writeBuffer(char *inBuf,int len)
 		//pthread_cond_wait(&m_iCondWrite,&m_iMutxWrite);
 		if(m_bBreakIO)
 		{
-			return 0;
+			pthread_mutex_unlock(&m_iMutxWrite);
+			return -2;
 		}
 	}
 	pthread_mutex_unlock(&m_iMutxWrite);
@@ -173,8 +175,9 @@ size_t RingBuffer::writeBuffer(char *inBuf,int len)
 	size_t leftBufLen = (m_pWritePtr >= m_pReadPtr)?(m_iBufferSize - (m_pWritePtr-m_pReadPtr)-1):(m_pReadPtr - m_pWritePtr -1);
 
 	size_t inBufLen = (size_t)len;
-	size_t writeBufLen = RINGBUFFER_MIN(len, inBufLen);
+	size_t writeBufLen = RINGBUFFER_MIN(len, leftBufLen);
 
+/*
 	if(m_pWritePtr < m_pReadPtr)
 	{
 		memcpy(m_pWritePtr,inBuf,writeBufLen);
@@ -185,7 +188,7 @@ size_t RingBuffer::writeBuffer(char *inBuf,int len)
 		pthread_mutex_unlock(&m_iMutxRead);
 	}else
 	{
-		
+*/		
 		if((m_pWritePtr + writeBufLen) >= (m_pBuffer+m_iBufferSize))//write data to ringbuffer wrapround
 		{
 			size_t writeToEndLen = (m_pBuffer+m_iBufferSize) - m_pWritePtr;
@@ -196,7 +199,7 @@ size_t RingBuffer::writeBuffer(char *inBuf,int len)
 			if(writeBufLen-writeToEndLen > 0)
 			{
 				memcpy(m_pWritePtr,inBuf+writeToEndLen,writeBufLen-writeToEndLen);
-				m_pWritePtr += writeBufLen-writeToEndLen;
+				m_pWritePtr += (writeBufLen-writeToEndLen);
 			}
 			pthread_cond_signal(&m_iCondRead);
 			pthread_mutex_unlock(&m_iMutxRead);
@@ -208,11 +211,11 @@ size_t RingBuffer::writeBuffer(char *inBuf,int len)
 			pthread_cond_signal(&m_iCondRead);
 			pthread_mutex_unlock(&m_iMutxRead);
 		}
-	}
+	//}
 	return writeBufLen;
 }
 
-size_t RingBuffer::getBufferLeftSize()
+int RingBuffer::getBufferLeftSize()
 {
 	size_t leftBufLen = (m_pWritePtr >= m_pReadPtr)?(m_iBufferSize - (m_pWritePtr-m_pReadPtr)-1):(m_pReadPtr - m_pWritePtr -1);
 	return leftBufLen;

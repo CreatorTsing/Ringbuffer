@@ -25,6 +25,7 @@ int main(int argc,char** argv)
 	if(argc > 1)
 	{
 		pFileName = argv[1];
+		printf("%s\n",pFileName);
 		contex.m_Fd = open(pFileName,O_RDONLY);
 	}
 
@@ -71,31 +72,45 @@ int main(int argc,char** argv)
 void * write_entry(void *arg)
 {
 	Contex * pContex = (Contex *)arg;
-	char buffer[4] = {0};
+	char buffer[5] = {0};
 	while(!writeThredExit)
 	{
-		size_t leftSize = pContex->m_pRingBuffer->getBufferLeftSize();
-
-		size_t realReadSize = (leftSize < 4)?leftSize:4;
-		read(pContex->m_Fd,buffer,realReadSize);
-
-		pContex->m_pRingBuffer->writeBuffer(buffer, realReadSize);
+		int writeLen = 0;
+		size_t readLen = read(pContex->m_Fd,buffer,4);
+		if(readLen > 0)
+		{
+			do
+			{
+				writeLen = pContex->m_pRingBuffer->writeBuffer(buffer+writeLen, readLen);
+				if(writeLen < 0)
+				{
+					printf("writeLen is %d\n",(int)writeLen);
+					goto exit_thread;
+				}
+				readLen = readLen - writeLen;
+			}while(readLen > 0);
+		}
+		else
+		{
+			//printf("readLen is %d\n",(int)readLen);
+			sleep(1);
+		}
+		sleep(1);
 	}
-	
+exit_thread:
+	printf("write_entry exit\n");
 	return 0;
 }
 
 void * read_entry(void *arg)
 {
 	Contex * pContex = (Contex *)arg;
-	char buffer[4] = {0};
+	char buffer[5] = {0};
 	while(!readThreadExit)
 	{
-		memset(buffer,0,4);
+		memset(buffer,0,5);
 		pContex->m_pRingBuffer->readBuffer(buffer, 4);
-		printf("buffer[%c][%c][%c][%c]\n",buffer[0],buffer[1],
-						buffer[2],
-						buffer[3]);
+		printf("buffer[%s]\n",buffer);
 	}
 	
 	return 0;

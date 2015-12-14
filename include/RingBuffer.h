@@ -19,9 +19,9 @@ public:
 
 	void setBreakIO();
 
-	size_t readBuffer(char *outBuf,int len);
-	size_t writeBuffer(char *inBuf,int len);
-	size_t getBufferLeftSize();
+	int readBuffer(char *outBuf,int len);
+	int writeBuffer(char *inBuf,int len);
+	int getBufferLeftSize();
 	
 private:
 	pthread_cond_t m_iCondRead;
