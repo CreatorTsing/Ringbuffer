@@ -3,7 +3,7 @@ LIB = -lpthread
 
 
 ringbuffer : main.o RingBuffer.o
-	g++ $(LIB) -o ringbuffer main.o RingBuffer.o
+	g++ -o ringbuffer main.o RingBuffer.o $(LIB)
 
 RingBuffer.o : RingBuffer.cpp include/RingBuffer.h
 	g++ $(INCLUDE) -c RingBuffer.cpp
