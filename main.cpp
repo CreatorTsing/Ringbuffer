@@ -33,8 +33,8 @@ int main(int argc,char** argv)
 		return -1;
 	
 	bool isExit = false;
-	pthread_t writeTid = -1;
-	pthread_t readTid = -1;
+	pthread_t writeTid;
+	pthread_t readTid;
 	
 
 	contex.m_pRingBuffer = new RingBuffer();
