@@ -28,7 +28,11 @@ int main(int argc,char** argv)
 		printf("%s\n",pFileName);
 		contex.m_Fd = open(pFileName,O_RDONLY);
 	}
-
+	else
+	{
+		printf("warning,pls enter a file name\n");
+		return -1;
+	}
 	if(contex.m_Fd <= 0)
 		return -1;
 	
